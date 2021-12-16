@@ -2,6 +2,7 @@
 """setup.py for volctl"""
 
 import re
+from pathlib import Path
 from setuptools import find_packages, setup
 
 
@@ -22,7 +23,7 @@ setup(
     version=get_version(),
     description="Per-application volume control for GNU/Linux desktops",
     author="buzz",
-    author_email="buzz@users.noreply.github.com",
+    author_email="matheusfillipeag@gmail.com, buzz@users.noreply.github.com",
     license="GPLv2",
     url="https://buzz.github.io/volctl/",
     packages=find_packages(),
@@ -31,5 +32,6 @@ setup(
         ("share/applications", ["data/volctl.desktop"]),
         ("share/glib-2.0/schemas", ["data/apps.volctl.gschema.xml"]),
     ],
+    package_data={"volctl": ["icons/*.svg"]},
     install_requires=["click", "pulsectl", "pycairo", "PyGObject", "PyYAML"],
 )

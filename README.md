@@ -1,8 +1,6 @@
-# volctl
+# About this fork
 
-Per-application volume control and OSD for Linux desktops.
-
-![Screenshot](https://buzz.github.io/volctl/screenshot.png)
+Per-application volume control and OSD for Linux desktops. This is a fork of ![volctl](https://github.com/buzz/volctl) which attempts to improve the OSD using volume icons copied from tvolnoti's dark theme.
 
 I couldn't find a simple tray icon that allows to control multiple
 applications easily from the task bar. So I wrote my own.

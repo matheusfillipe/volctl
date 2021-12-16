@@ -7,23 +7,29 @@ Various code snippets taken from https://github.com/kozec/sc-controller
 """
 
 import math
+from pathlib import Path
+
 import cairo
-from gi.repository import Gdk, Gtk, GdkX11, GLib
+import gi
+from gi.repository import Gdk, GdkX11, GLib, Gtk
 
 import volctl.xwrappers as X
+
+gi.require_version("Rsvg", "2.0")
+from gi.repository import Rsvg
 
 
 class VolumeOverlay(Gtk.Window):
     """Window that displays volume sliders."""
 
-    BASE_WIDTH = 200
-    BASE_HEIGHT = 200
+    BASE_WIDTH = 300
+    BASE_HEIGHT = 250
     BASE_FONT_SIZE = 42
     BASE_LINE_WIDTH = 5
     SCREEN_MARGIN = 64
     BASE_PADDING = 24
-    BG_OPACITY = 0.85
-    BG_CORNER_RADIUS = 8
+    BG_OPACITY = 0.93
+    BG_CORNER_RADIUS = 20
     MUTE_OPACITY = 0.2
     TEXT_OPACITY = 0.8
     NUM_BARS = 16
@@ -35,6 +41,7 @@ class VolumeOverlay(Gtk.Window):
         self.osd_position = self._volctl.settings.get_string("osd-position")
 
         scale = self._volctl.settings.get_int("osd-scale") / 100
+        self.scale = scale
         self._width = int(self.BASE_WIDTH * scale)
         self._height = int(self.BASE_HEIGHT * scale)
         self._font_size = int(self.BASE_FONT_SIZE * scale)
@@ -120,7 +127,7 @@ class VolumeOverlay(Gtk.Window):
         else:
             raise ValueError("Got unknown y position for OSD.")
 
-        self.move(xpos, ypos)
+        self.move(xpos / 2 + 30, ypos / 2 + 60)
 
     def _draw_osd(self, _, cairo_r):
         """Draw on-screen volume display."""
@@ -160,7 +167,7 @@ class VolumeOverlay(Gtk.Window):
         )
         cairo_r.close_path()
 
-        cairo_r.set_source_rgba(0.1, 0.1, 0.1, self.BG_OPACITY * self._opacity)
+        cairo_r.set_source_rgba(0.13, 0.145, 0.18, self.BG_OPACITY * self._opacity)
         cairo_r.set_operator(cairo.OPERATOR_SOURCE)
         cairo_r.fill()
         cairo_r.set_operator(cairo.OPERATOR_OVER)
@@ -179,19 +186,60 @@ class VolumeOverlay(Gtk.Window):
         cairo_r.show_text(text)
 
         # Volume indicator
-        ind_height = self._height - 3 * self._padding - text_height
-        outer_radius = ind_height / 2
-        inner_radius = outer_radius / 1.618
-        bars = min(round(self.NUM_BARS * self._volume), self.NUM_BARS)
-        cairo_r.set_line_width(self._line_width)
-        cairo_r.set_line_cap(cairo.LINE_CAP_ROUND)
-        for i in range(bars):
-            cairo_r.identity_matrix()
-            cairo_r.translate(xcenter, self._padding + ind_height / 2)
-            cairo_r.rotate(math.pi + 2 * math.pi / self.NUM_BARS * i)
-            cairo_r.move_to(0.0, -inner_radius)
-            cairo_r.line_to(0.0, -outer_radius)
-            cairo_r.stroke()
+        icon = Rsvg.Handle().new_from_file(
+            str(Path(__file__).parent / "icons/volume_muted.svg")
+            if self._mute
+            else str(Path(__file__).parent / "icons/volume_off.svg")
+            if self._volume <= 0.1
+            else str(Path(__file__).parent / "icons/volume_low.svg")
+            if self._volume < 0.25
+            else str(Path(__file__).parent / "icons/volume_medium.svg")
+            if self._volume < 0.5
+            else str(Path(__file__).parent / "icons/volume_high.svg")
+        )
+        ratio = icon.props.em / icon.props.dpi_x
+        icon.set_dpi(192 / ratio)
+        dim = icon.get_dimensions()
+        rec = Rsvg.Rectangle()
+        rec.width = dim.width * self.scale
+        rec.height = dim.height * self.scale
+        rec.x = xcenter - dim.width / 2
+        rec.y = self._padding
+        icon.render_document(cairo_r, rec)
+
+        # Draw progress bar
+        cairo_r.set_source_rgba(0.2, 0.2, 0.2, self.BG_OPACITY * self._opacity)
+        height = 10
+        y = -80
+        cairo_r.rectangle(
+            self._padding,
+            self._height - height + y,
+            self._width - self._padding * 2,
+            height,
+        )
+        cairo_r.fill()
+        cairo_r.set_source_rgba(1, 1, 1, mute_opacity)
+        height = 8
+        cairo_r.rectangle(
+            self._padding,
+            self._height - height + y - 1,
+            (self._width - self._padding * 2) * self._volume,
+            height,
+        )
+        cairo_r.fill()
+        # ind_height = self._height - 3 * self._padding - text_height
+        # outer_radius = ind_height / 2
+        # inner_radius = outer_radius / 1.618
+        # bars = min(round(self.NUM_BARS * self._volume), self.NUM_BARS)
+        # cairo_r.set_line_width(self._line_width)
+        # cairo_r.set_line_cap(cairo.LINE_CAP_ROUND)
+        # for i in range(bars):
+        #     cairo_r.identity_matrix()
+        #     cairo_r.translate(xcenter, self._padding + ind_height / 2)
+        #     cairo_r.rotate(math.pi + 2 * math.pi / self.NUM_BARS * i)
+        #     cairo_r.move_to(0.0, -inner_radius)
+        #     cairo_r.line_to(0.0, -outer_radius)
+        #     cairo_r.stroke()
 
     def _make_window_clickthrough(self):
         """Make events pass through window."""
